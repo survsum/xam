@@ -44,7 +44,7 @@ app.use('/api/papers', paperRoutes);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
-    message: 'PerfectXams API running',
+    message: 'viel API running',
     timestamp: new Date().toISOString()
   });
 });
@@ -64,15 +64,15 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 mongoose
-  .connect(process.env.MONGO_URI || "mongodb://localhost:27017/perfectxams")
+  .connect(process.env.MONGO_URI || "mongodb://localhost:27017/viel")
   .then(() => {
-    console.log('MongoDB connected successfully');
+    console.log("MongoDB connected successfully");
 
-    app.listen(PORT, () => {
-      console.log(`PerfectXams Backend running on http://localhost:${PORT}`);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`VIEL Backend running on port ${PORT}`);
     });
   })
   .catch((err) => {
-    console.error('MongoDB connection error:', err.message);
+    console.error("MongoDB connection error:", err.message);
     process.exit(1);
-  });
+  });
