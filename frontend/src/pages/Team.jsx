@@ -1,41 +1,54 @@
-import React, { useState } from 'react';
-import { SectionLabel, titleStyle } from './HowItWorks';
+import React from 'react';
 
 const team = [
-  { initials: 'LW', name: 'Lucky Walia', role: 'Lead Developer' },
-  { initials: 'SS', name: 'Saurav Suman', role: 'Co-Lead Developer' },
-];
-
-const avatarColors = [
-  ['#1a56db', '#0ea5e9'],
-  ['#7c3aed', '#06b6d4'],
+  { initials: 'LW', name: 'Lucky Walia', role: 'Lead Developer', colors: ['#8b5cf6', '#5b21b6'] },
+  { initials: 'SS', name: 'Saurav Suman', role: 'Co-Lead Developer', colors: ['#8b5cf6', '#4c1d95'] },
 ];
 
 export default function Team() {
   return (
     <section id="team" style={{
-      padding: '7rem 4rem', maxWidth: 1200, margin: '0 auto',
-      position: 'relative', zIndex: 1,
+      padding: '8rem 2rem',
+      maxWidth: 1100,
+      margin: '0 auto',
+      position: 'relative',
+      zIndex: 10,
     }}>
-      <div style={{ textAlign: 'center' }}>
-        <SectionLabel>// The Builders</SectionLabel>
-        <h2 style={titleStyle}>Our Team</h2>
+      <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+        <span style={{
+          fontSize: '0.88rem',
+          fontWeight: 800,
+          color: 'var(--accent-violet-bright)',
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          fontFamily: 'Inter, system-ui, sans-serif'
+        }}>
+          06 — ENGINEERING LEADERSHIP
+        </span>
+        <h2 style={{
+          fontSize: 'clamp(2.2rem, 4.5vw, 3.8rem)',
+          fontWeight: 900,
+          letterSpacing: '-0.04em',
+          color: 'var(--text-white)',
+          marginTop: '0.8rem',
+          fontFamily: 'Inter, system-ui, sans-serif'
+        }}>
+          THE VIEL TEAM.
+        </h2>
         <p style={{
-          color: 'var(--muted)', fontSize: '1rem',
+          color: 'var(--text-muted)', fontSize: '1rem',
           maxWidth: 480, margin: '0.8rem auto 0', lineHeight: 1.7,
         }}>
-          The minds behind PerfectXams — building the future of tamper-proof examinations.
+          The engineers behind Viel — building the future of tamper-proof examination infrastructure.
         </p>
       </div>
 
-
       <div style={{
-        display: 'flex', gap: '1.5rem',
+        display: 'flex', gap: '2.5rem',
         flexWrap: 'wrap', justifyContent: 'center',
-        marginTop: '3.5rem',
       }}>
-        {team.map((member, i) => (
-          <TeamCard key={member.name} {...member} colors={avatarColors[i]} />
+        {team.map((member) => (
+          <TeamCard key={member.name} {...member} />
         ))}
       </div>
     </section>
@@ -43,52 +56,44 @@ export default function Team() {
 }
 
 function TeamCard({ initials, name, role, colors }) {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="cinematic-glass"
       style={{
-        background: 'var(--surface)',
-        border: `1px solid ${hovered ? 'rgba(26,86,219,0.28)' : 'var(--border)'}`,
-        borderRadius: 18, padding: '2.6rem 2rem',
-        textAlign: 'center', width: 200,
+        padding: '3rem 2.5rem',
+        textAlign: 'center', width: 280,
         position: 'relative', overflow: 'hidden',
-        transform: hovered ? 'translateY(-7px)' : 'none',
-        boxShadow: hovered ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
-        transition: 'all 0.3s ease',
       }}
     >
-      {/* Bottom accent */}
+      {/* Top Violet Accent Line */}
       <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
+        position: 'absolute', top: 0, left: 0, right: 0, height: 3,
         background: `linear-gradient(90deg, ${colors[0]}, ${colors[1]})`,
-        transform: hovered ? 'scaleX(1)' : 'scaleX(0)',
-        transition: 'transform 0.38s ease',
       }} />
 
-      {/* Avatar */}
+      {/* Avatar Circle */}
       <div style={{
-        width: 72, height: 72, borderRadius: '50%',
+        width: 80, height: 80, borderRadius: '50%',
         background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`,
-        margin: '0 auto 1.2rem',
+        margin: '0 auto 1.5rem',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '1.3rem', fontWeight: 700,
-        color: '#fff', fontFamily: 'var(--font-mono)',
-        boxShadow: hovered ? `0 8px 22px ${colors[0]}44` : 'none',
-        transition: 'box-shadow 0.3s',
+        fontSize: '1.4rem', fontWeight: 900,
+        color: '#ffffff', fontFamily: 'Inter, system-ui, sans-serif',
+        boxShadow: `0 10px 30px rgba(139, 92, 246, 0.4)`,
       }}>
         {initials}
       </div>
 
       <div style={{
-        fontSize: '1rem', fontWeight: 700,
-        marginBottom: '0.3rem', color: 'var(--text)',
+        fontSize: '1.25rem', fontWeight: 900,
+        marginBottom: '0.4rem', color: 'var(--text-white)',
+        fontFamily: 'Inter, system-ui, sans-serif'
       }}>{name}</div>
+      
       <div style={{
-        fontSize: '0.72rem', color: 'var(--accent)',
-        fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
+        fontSize: '0.84rem', color: 'var(--accent-violet-bright)',
+        fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '0.05em',
+        fontWeight: 700,
       }}>{role}</div>
     </div>
   );

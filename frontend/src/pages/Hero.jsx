@@ -1,133 +1,139 @@
-import React from 'react';
-import Button from '../components/Button';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight } from 'lucide-react';
+import BlurredTileField from '../components/BlurredTileField';
 
-const chainNodes = [
-  { label: 'Upload',   hash: '#0x4F2A' },
-  { label: 'Encrypt',  hash: '#0x4F2B' },
-  { label: 'Lock Key', hash: '#0x4F2C' },
-  { label: 'Release',  hash: '#0x4F2D' },
-  { label: 'Audit Log',hash: '#0x4F2E' },
-];
+export default function Hero({ onSignup, onHowItWorks, theme }) {
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-export default function Hero({ onSignup, onHowItWorks }) {
+  // Subtle Mouse Parallax (2-5px background shift, 0.2x typography shift)
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 2;
+      const y = (e.clientY / window.innerHeight - 0.5) * 2;
+      setMousePos({ x, y });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   return (
     <section id="home" style={{
+      width: '100vw',
+      height: '100vh',
       minHeight: '100vh',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      textAlign: 'center',
-      padding: '8rem 2rem 5rem',
-      position: 'relative', zIndex: 1, overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      padding: '0 5vw',
+      position: 'relative',
+      zIndex: 10,
+      overflow: 'hidden',
+      background: 'transparent',
     }}>
-      {/* Glow blob */}
-      <div style={{
-        position: 'absolute', top: '22%', left: '50%',
-        transform: 'translateX(-50%)',
-        width: 700, height: 380,
-        background: 'radial-gradient(ellipse, rgba(14,165,233,0.13) 0%, transparent 70%)',
-        pointerEvents: 'none',
-      }} />
 
-      {/* Badge */}
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-        background: 'var(--accentlight)',
-        border: '1px solid rgba(26,86,219,0.18)',
-        color: 'var(--accent)',
-        padding: '0.4rem 1.2rem',
-        borderRadius: 100,
-        fontSize: '0.76rem',
-        fontFamily: 'var(--font-mono)',
-        letterSpacing: '0.1em', textTransform: 'uppercase',
-        marginBottom: '2.4rem',
-        animation: 'fadeDown 0.8s ease both',
-      }}>
-        <span style={{
-          width: 7, height: 7, background: 'var(--accent)',
-          borderRadius: '50%', animation: 'pulse 2s infinite',
-          display: 'inline-block',
-        }} />
-        Blockchain-Powered Security
-      </div>
+      {/* Layer 3: Environmental Glass Layer */}
+      <BlurredTileField theme={theme} mousePos={mousePos} />
 
-      {/* Headline */}
-      <h1 style={{
-        fontSize: 'clamp(2.8rem, 7vw, 5.4rem)',
-        fontWeight: 800, lineHeight: 1.05,
-        letterSpacing: '-0.03em', maxWidth: 880,
-        color: 'var(--text)',
-        animation: 'fadeDown 0.8s 0.1s ease both',
-      }}>
-        Exam Paper Leaks<br />
-        Stop{' '}
-        <span style={{
-          background: 'linear-gradient(90deg, var(--accent), var(--accent2))',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-        }}>
-          Here.
+      {/* Layer 6: Hero Typography Canvas (Left 45-50% Viewport) */}
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '48vw',
+          position: 'relative',
+          zIndex: 10,
+          background: 'transparent',
+          transform: `translate3d(${mousePos.x * 12}px, ${mousePos.y * 8}px, 0)`,
+          transition: 'transform 0.15s ease-out',
+        }}
+      >
+        {/* 1. Eyebrow */}
+        <span
+          className="editorial-eyebrow"
+          style={{
+            animation: 'heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s backwards'
+          }}
+        >
+          SECURE WHAT MATTERS.
         </span>
-      </h1>
 
-      {/* Subtext */}
-      <p style={{
-        color: 'var(--muted)', fontSize: '1.08rem',
-        maxWidth: 570, margin: '1.8rem auto 3rem',
-        lineHeight: 1.72,
-        animation: 'fadeDown 0.8s 0.2s ease both',
-      }}>
-        PerfectXskills encrypts question papers on-chain. Keys release only at exam time.
-        Every action is permanently recorded — tamper-proof, transparent, traceable.
-      </p>
+        {/* 2. Primary Headline */}
+        <h1
+          className="editorial-primary-heading"
+          style={{
+            marginBottom: '0.2rem',
+            animation: 'heroRiseBlur 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.35s backwards'
+          }}
+        >
+          Examinations.
+        </h1>
 
-      {/* CTA Buttons */}
-      <div style={{
-        display: 'flex', gap: '1rem', justifyContent: 'center',
-        flexWrap: 'wrap',
-        animation: 'fadeDown 0.8s 0.3s ease both',
-      }}>
-        <Button size="lg" onClick={onSignup}>Get Started Free</Button>
-        <Button size="lg" variant="outline" onClick={onHowItWorks}>See How It Works</Button>
+        {/* 3. Secondary Lighter Headline */}
+        <div
+          className="editorial-secondary-heading"
+          style={{
+            marginBottom: '1.8rem',
+            animation: 'heroRiseBlur 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.5s backwards'
+          }}
+        >
+          Built for trust.
+        </div>
+
+        {/* 4. Short Description */}
+        <p
+          className="editorial-description"
+          style={{
+            marginBottom: '2.5rem',
+            animation: 'heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.65s backwards'
+          }}
+        >
+          Encrypted, time-locked examination papers with verifiable integrity from upload to release.
+        </p>
+
+        {/* 5. CTAs with Refined Hover Micro-Interactions */}
+        <div style={{
+          display: 'flex',
+          gap: '1.8rem',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          animation: 'heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.8s backwards'
+        }}>
+          <button
+            onClick={onSignup}
+            className="viel-btn-primary"
+          >
+            GET STARTED <ArrowRight size={16} className="arrow-icon" />
+          </button>
+
+          <button
+            onClick={onHowItWorks}
+            className="viel-link-secondary"
+          >
+            EXPLORE PLATFORM <ArrowRight size={16} className="arrow-icon" />
+          </button>
+        </div>
+
       </div>
 
-      {/* Blockchain Chain Nodes */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginTop: '5rem', gap: 0,
-        animation: 'fadeUp 1s 0.5s ease both',
-        flexWrap: 'wrap',
-      }}>
-        {chainNodes.map((node, i) => (
-          <React.Fragment key={node.label}>
-            <div style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 10, padding: '0.8rem 1.2rem',
-              fontFamily: 'var(--font-mono)', fontSize: '0.68rem',
-              color: 'var(--muted)', textAlign: 'center',
-              minWidth: 112,
-              boxShadow: 'var(--shadow-sm)',
-            }}>
-              <div style={{ color: 'var(--text)', fontWeight: 700, fontSize: '0.74rem', marginBottom: '0.2rem' }}>
-                {node.label}
-              </div>
-              <div style={{ color: 'var(--accent)', fontSize: '0.63rem' }}>{node.hash}</div>
-            </div>
-            {i < chainNodes.length - 1 && (
-              <div style={{
-                width: 28, height: 2,
-                background: 'linear-gradient(90deg, var(--border), var(--accent), var(--border))',
-                position: 'relative', flexShrink: 0,
-              }}>
-                <span style={{
-                  position: 'absolute', right: -5, top: -8,
-                  fontSize: '0.55rem', color: 'var(--accent)',
-                }}>▶</span>
-              </div>
-            )}
-          </React.Fragment>
-        ))}
-      </div>
+      {/* Keyframe entry animations */}
+      <style>{`
+        @keyframes heroFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes heroRiseBlur {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+            filter: blur(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+            filter: blur(0);
+          }
+        }
+      `}</style>
+
     </section>
   );
 }

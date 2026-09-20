@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText, Upload, Clock, Lock, CheckCircle2, AlertTriangle, RefreshCw,
-  Search, ShieldCheck, User, LogOut, Settings, Eye, Check, X, ArrowRight, Database
+  Search, ShieldCheck, LogOut, Settings, X, Check
 } from 'lucide-react';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -11,7 +13,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('papers');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('viel_theme') || 'dark');
 
   // User & Auth State
   const token = localStorage.getItem('pxs_token');
@@ -34,10 +36,20 @@ export default function Dashboard() {
   const [paperFile, setPaperFile] = useState(null);
 
   // Upload Progress State
-  const [uploadStep, setUploadStep] = useState(0); // 0: Idle, 1: Uploading & Encrypting, 2: SHA-256 Hashing, 3: Saving DB, 4: Blockchain Notarization, 5: Complete
+  const [uploadStep, setUploadStep] = useState(0);
   const [uploadError, setUploadError] = useState('');
   const [uploadResult, setUploadResult] = useState(null);
   const [retryLoading, setRetryLoading] = useState({});
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('viel_theme', next);
+  };
 
   useEffect(() => {
     if (!token || !user) {
@@ -96,7 +108,7 @@ export default function Dashboard() {
       return;
     }
 
-    setUploadStep(1); // Stage 1: Uploading & Encrypting
+    setUploadStep(1);
 
     try {
       const formData = new FormData();
@@ -110,9 +122,8 @@ export default function Dashboard() {
       formData.append('assignedTo', assignedTo);
       formData.append('paper', paperFile);
 
-      // Simulate real stage step transitions
-      setTimeout(() => setUploadStep(2), 600); // Stage 2: SHA-256 Hashing
-      setTimeout(() => setUploadStep(3), 1200); // Stage 3: Database Storage & Encryption
+      setTimeout(() => setUploadStep(2), 600);
+      setTimeout(() => setUploadStep(3), 1200);
 
       const res = await fetch(`${API}/papers/upload`, {
         method: 'POST',
@@ -128,9 +139,9 @@ export default function Dashboard() {
         return;
       }
 
-      setUploadStep(4); // Stage 4: Blockchain Notarization
+      setUploadStep(4);
       setTimeout(() => {
-        setUploadStep(5); // Complete
+        setUploadStep(5);
         setUploadResult(data);
         fetchMyPapers();
       }, 800);
@@ -178,288 +189,169 @@ export default function Dashboard() {
     setPaperFile(null);
   };
 
-  // Filtered papers
   const filteredPapers = papers.filter(p =>
     p.examName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.examCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.subject?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Statistics
   const totalUploaded = papers.length;
   const lockedCount = papers.filter(p => p.status === 'locked').length;
   const unlockedCount = papers.filter(p => p.status === 'unlocked').length;
   const blockchainCount = papers.filter(p => p.blockchainStatus === 'registered').length;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
-      
-      {/* ── Apple Style Sidebar ── */}
-      <aside style={{
-        width: 260,
-        background: 'var(--surface-card)',
-        borderRight: '1px solid var(--border-subtle)',
-        padding: '2rem 1.2rem',
-        position: 'fixed',
-        height: '100vh',
-        top: 0, left: 0,
-        zIndex: 20,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-      }}>
-        <div>
-          {/* Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2.5rem', paddingLeft: '0.5rem' }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 10,
-              background: 'linear-gradient(135deg, #0071e3 0%, #5856d6 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 800, fontSize: '1rem'
-            }}>
-              P
-            </div>
-            <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>
-              Perfect<span style={{ color: 'var(--accent-apple)' }}>Xams</span>
-            </span>
-          </div>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-dark)', color: 'var(--text-primary)' }}>
+      <Navbar theme={theme} toggleTheme={toggleTheme} />
 
-          {/* Primary Action Button */}
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="apple-button-primary"
-            style={{ width: '100%', borderRadius: 'var(--radius-sm)', padding: '0.7rem 1rem', marginBottom: '2rem', justifyContent: 'center' }}
-          >
-            <Upload size={18} /> Upload New Paper
-          </button>
-
-          {/* Navigation Links */}
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            <SidebarNavItem
-              icon={<FileText size={18} />}
-              label="My Exam Papers"
-              active={activeTab === 'papers'}
-              onClick={() => setActiveTab('papers')}
-            />
-            <SidebarNavItem
-              icon={<ShieldCheck size={18} />}
-              label="Audit & Verify"
-              onClick={() => navigate('/audit')}
-            />
-            <SidebarNavItem
-              icon={<Settings size={18} />}
-              label="Account Settings"
-              active={activeTab === 'settings'}
-              onClick={() => setActiveTab('settings')}
-            />
-          </nav>
-        </div>
-
-        {/* User Card */}
-        <div style={{
-          padding: '0.8rem', background: 'var(--bg-secondary)',
-          borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-        }}>
-          <div style={{ overflow: 'hidden' }}>
-            <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-              {user?.firstName} {user?.lastName}
-            </p>
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-              {user?.role}
-            </p>
-          </div>
-          <button
-            onClick={handleLogout}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', padding: 4 }}
-            title="Sign Out"
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
-      </aside>
-
-      {/* ── Main Work Area ── */}
-      <main style={{ marginLeft: 260, flex: 1, padding: '2.5rem 3rem' }} className="animate-fade-in">
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '6.5rem 2rem 4rem' }}>
         
         {/* Header Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              Paper Setter Dashboard
+            <span className="editorial-eyebrow">VIEL INFRASTRUCTURE</span>
+            <h1 className="editorial-primary-heading" style={{ fontSize: '2.2rem' }}>
+              Paper Setter Portal
             </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: 2 }}>
-              Secure AES-256 encrypted exam paper vault & blockchain registry
+            <p className="editorial-description" style={{ fontSize: '0.92rem', marginTop: 4 }}>
+              AES-256 encrypted vault & Solidity smart contract notarization
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                placeholder="Search exam papers..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="apple-input"
-                style={{ paddingLeft: '2.2rem', width: 240, padding: '0.55rem 0.8rem 0.55rem 2.2rem', fontSize: '0.84rem' }}
-              />
-              <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-            </div>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="viel-btn-primary"
+              style={{ padding: '0.7rem 1.5rem', fontSize: '0.88rem' }}
+            >
+              <Upload size={16} /> Upload New Paper
+            </button>
+            <button
+              onClick={handleLogout}
+              className="viel-btn-signin"
+              style={{ color: '#ff4d5e' }}
+            >
+              <LogOut size={15} /> Sign Out
+            </button>
           </div>
         </div>
 
         {/* ── Stat Metric Cards ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.2rem', marginBottom: '2.5rem' }}>
-          <StatMetricCard icon={<FileText size={20} color="var(--accent-apple)" />} value={totalUploaded} label="Total Papers" sub="Uploaded by you" />
-          <StatMetricCard icon={<Lock size={20} color="var(--status-warning)" />} value={lockedCount} label="Locked Vault" sub="Awaiting unlock time" />
-          <StatMetricCard icon={<CheckCircle2 size={20} color="var(--status-success)" />} value={unlockedCount} label="Unlocked" sub="Accessible to organiser" />
-          <StatMetricCard icon={<ShieldCheck size={20} color="var(--status-info)" />} value={blockchainCount} label="Blockchain Proved" sub="Notarized on-chain" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.2rem', marginBottom: '2.5rem' }}>
+          <StatMetricCard icon={<FileText size={20} color="var(--accent-violet-bright)" />} value={totalUploaded} label="Total Papers" sub="Uploaded by you" />
+          <StatMetricCard icon={<Lock size={20} color="#ff9500" />} value={lockedCount} label="Locked Vault" sub="Awaiting unlock time" />
+          <StatMetricCard icon={<CheckCircle2 size={20} color="#34c759" />} value={unlockedCount} label="Unlocked" sub="Accessible to organiser" />
+          <StatMetricCard icon={<ShieldCheck size={20} color="var(--accent-violet-bright)" />} value={blockchainCount} label="Blockchain Proved" sub="Notarized on-chain" />
         </div>
 
         {/* ── Main Papers Section ── */}
-        {activeTab === 'papers' && (
-          <div className="apple-card" style={{ padding: '1.8rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
-                Uploaded Exam Papers ({filteredPapers.length})
-              </h2>
+        <div className="cinematic-glass" style={{ padding: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, fontFamily: 'Inter, system-ui, sans-serif' }}>
+              Uploaded Exam Papers ({filteredPapers.length})
+            </h2>
+
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Search papers..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  style={{
+                    background: 'var(--bg-dark-surface)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: 980,
+                    padding: '0.45rem 1rem 0.45rem 2.2rem',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.84rem',
+                    outline: 'none',
+                  }}
+                />
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              </div>
+
               <button
                 onClick={fetchMyPapers}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-apple)', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-violet-bright)', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
               >
-                <RefreshCw size={14} /> Refresh List
+                <RefreshCw size={14} /> Refresh
               </button>
             </div>
-
-            {loadingPapers ? (
-              <p style={{ color: 'var(--text-tertiary)', padding: '2rem 0', textAlign: 'center' }}>Loading encrypted paper records...</p>
-            ) : filteredPapers.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                <FileText size={40} color="var(--text-tertiary)" style={{ marginBottom: '0.8rem' }} />
-                <p style={{ fontWeight: 600, fontSize: '1rem' }}>No exam papers found</p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: 4 }}>Upload your first encrypted paper to get started.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {filteredPapers.map(paper => (
-                  <PaperRowCard
-                    key={paper._id}
-                    paper={paper}
-                    onRetry={() => handleRetryBlockchain(paper._id)}
-                    retryLoading={retryLoading[paper._id]}
-                  />
-                ))}
-              </div>
-            )}
           </div>
-        )}
 
-        {/* ── Settings View ── */}
-        {activeTab === 'settings' && (
-          <div className="apple-card" style={{ padding: '2rem', maxWidth: 600 }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>Account & Security Preferences</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <SettingRow label="Institution Name" value={user?.organisation || 'University'} />
-              <SettingRow label="Account Role" value={user?.role} />
-              <SettingRow label="Email Address" value={user?.email} />
-              <SettingRow label="Encryption Standard" value="AES-256-CBC (Server Derived)" />
-              <SettingRow label="Ethereum Smart Contract" value="0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512" />
+          {loadingPapers ? (
+            <p style={{ color: 'var(--text-muted)', padding: '3rem 0', textAlign: 'center' }}>Loading encrypted paper records...</p>
+          ) : filteredPapers.length === 0 ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <FileText size={38} color="var(--accent-violet-bright)" style={{ marginBottom: '0.8rem', opacity: 0.6 }} />
+              <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>No exam papers found</p>
+              <p style={{ fontSize: '0.86rem', marginTop: 4 }}>Upload your first encrypted paper to get started.</p>
             </div>
-          </div>
-        )}
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {filteredPapers.map(paper => (
+                <PaperRowCard
+                  key={paper._id}
+                  paper={paper}
+                  onRetry={() => handleRetryBlockchain(paper._id)}
+                  retryLoading={retryLoading[paper._id]}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-      </main>
+      </div>
 
       {/* ── Multi-Stage Upload Modal ── */}
       {showUploadModal && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.45)',
-          backdropFilter: 'blur(8px)', zIndex: 1000,
+          position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(10px)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
         }} onClick={() => resetModal()}>
           <div
-            className="apple-card animate-pop-in"
-            style={{ width: '100%', maxWidth: 540, padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}
+            className="cinematic-glass"
+            style={{ width: '100%', maxWidth: 540, padding: '2.2rem', maxHeight: '90vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <div>
                 <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Upload Exam Paper</h2>
-                <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
                   AES-256 Encrypted & Smart Contract Notarized
                 </p>
               </div>
-              <button onClick={() => resetModal()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+              <button onClick={() => resetModal()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 <X size={20} />
               </button>
             </div>
 
             {uploadError && (
               <div style={{
-                padding: '0.75rem 1rem', background: 'var(--status-danger-bg)',
-                borderRadius: 'var(--radius-sm)', color: 'var(--status-danger)',
-                fontSize: '0.85rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
+                padding: '0.75rem 1rem', background: 'rgba(255, 77, 94, 0.1)',
+                border: '1px solid rgba(255, 77, 94, 0.3)', borderRadius: 10,
+                color: '#ff4d5e', fontSize: '0.85rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
               }}>
                 <AlertTriangle size={16} /> {uploadError}
               </div>
             )}
 
-            {/* Stage Progress Indicator */}
-            {uploadStep > 0 && uploadStep < 5 && (
-              <div style={{ background: 'var(--bg-secondary)', padding: '1.2rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.5rem' }}>
-                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-apple)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Processing Security Pipeline...
-                </p>
-                <StageItem active={uploadStep >= 1} text="1. Encrypting File with AES-256-CBC" />
-                <StageItem active={uploadStep >= 2} text="2. Computing Canonical SHA-256 Checksum" />
-                <StageItem active={uploadStep >= 3} text="3. Storing Metadata in Database" />
-                <StageItem active={uploadStep >= 4} text="4. Attempting Blockchain Notarization" />
-              </div>
-            )}
-
-            {/* Success Confirmation View */}
-            {uploadStep === 5 && uploadResult && (
-              <div style={{ background: 'var(--status-success-bg)', border: '1px solid rgba(52,199,89,0.3)', padding: '1.5rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--status-success)', fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.8rem' }}>
-                  <CheckCircle2 size={24} /> Paper Secured & Saved!
-                </div>
-                
-                <div style={{ fontSize: '0.84rem', display: 'flex', flexDirection: 'column', gap: 6, color: 'var(--text-primary)' }}>
-                  <p><strong>Exam Name:</strong> {uploadResult.paper?.examName}</p>
-                  <p><strong>Document Status:</strong> <span style={{ color: 'var(--status-success)', fontWeight: 700 }}>✓ Encrypted & Saved</span></p>
-                  <p><strong>Canonical SHA-256:</strong> <code style={{ fontSize: '0.75rem', wordBreak: 'break-all' }}>{uploadResult.paper?.hash}</code></p>
-                  <p><strong>Blockchain Notarization:</strong>{' '}
-                    {uploadResult.paper?.blockchainStatus === 'registered' ? (
-                      <span style={{ color: 'var(--status-success)', fontWeight: 700 }}>✓ Registered ({uploadResult.paper?.blockchainTxHash?.substring(0, 16)}...)</span>
-                    ) : (
-                      <span style={{ color: 'var(--status-warning)', fontWeight: 700 }}>⚠ Local Blockchain Offline (Paper is safe, retry available)</span>
-                    )}
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => resetModal()}
-                  className="apple-button-primary"
-                  style={{ width: '100%', marginTop: '1.2rem' }}
-                >
-                  Done
-                </button>
-              </div>
-            )}
-
-            {/* Form Inputs (Shown when idle or error) */}
+            {/* Form Inputs */}
             {uploadStep === 0 && (
               <form onSubmit={handleUploadSubmit}>
-                {/* File Dropzone */}
                 <div style={{ marginBottom: '1.2rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                    Exam Document File * (PDF, DOCX, ZIP max 25MB)
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    Exam Document File * (PDF, DOCX, ZIP)
                   </label>
                   <input
                     type="file"
                     onChange={e => setPaperFile(e.target.files[0])}
-                    className="apple-input"
-                    style={{ padding: '0.6rem' }}
+                    style={{
+                      width: '100%', padding: '0.6rem', background: 'var(--bg-dark-surface)',
+                      border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--text-primary)'
+                    }}
                     accept=".pdf,.docx,.zip"
                     required
                   />
@@ -467,28 +359,34 @@ export default function Dashboard() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                      Exam Credentials / Code *
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      Exam Code *
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. MATH2026-FINAL"
+                      placeholder="MATH2026-FINAL"
                       value={examCode}
                       onChange={e => setExamCode(e.target.value)}
-                      className="apple-input"
+                      style={{
+                        width: '100%', padding: '0.65rem 0.9rem', background: 'var(--bg-dark-surface)',
+                        border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--text-primary)', outline: 'none'
+                      }}
                       required
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
                       Exam Title *
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Mathematics Final Exam"
+                      placeholder="Mathematics Final Exam"
                       value={examName}
                       onChange={e => setExamName(e.target.value)}
-                      className="apple-input"
+                      style={{
+                        width: '100%', padding: '0.65rem 0.9rem', background: 'var(--bg-dark-surface)',
+                        border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--text-primary)', outline: 'none'
+                      }}
                       required
                     />
                   </div>
@@ -496,26 +394,31 @@ export default function Dashboard() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
                       Subject
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Mathematics"
+                      placeholder="Mathematics"
                       value={subject}
                       onChange={e => setSubject(e.target.value)}
-                      className="apple-input"
+                      style={{
+                        width: '100%', padding: '0.65rem 0.9rem', background: 'var(--bg-dark-surface)',
+                        border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--text-primary)', outline: 'none'
+                      }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                      Assign Institution Organiser *
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      Assign Organiser *
                     </label>
                     <select
                       value={assignedTo}
                       onChange={e => setAssignedTo(e.target.value)}
-                      className="apple-input"
-                      style={{ cursor: 'pointer' }}
+                      style={{
+                        width: '100%', padding: '0.65rem 0.9rem', background: 'var(--bg-dark-surface)',
+                        border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--text-primary)', outline: 'none', cursor: 'pointer'
+                      }}
                       required
                     >
                       <option value="">Select Organiser...</option>
@@ -530,26 +433,32 @@ export default function Dashboard() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
                       Unlock Date *
                     </label>
                     <input
                       type="date"
                       value={unlockDate}
                       onChange={e => setUnlockDate(e.target.value)}
-                      className="apple-input"
+                      style={{
+                        width: '100%', padding: '0.65rem 0.9rem', background: 'var(--bg-dark-surface)',
+                        border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--text-primary)', outline: 'none'
+                      }}
                       required
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
                       Unlock Time *
                     </label>
                     <input
                       type="time"
                       value={unlockTime}
                       onChange={e => setUnlockTime(e.target.value)}
-                      className="apple-input"
+                      style={{
+                        width: '100%', padding: '0.65rem 0.9rem', background: 'var(--bg-dark-surface)',
+                        border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--text-primary)', outline: 'none'
+                      }}
                       required
                     />
                   </div>
@@ -559,13 +468,14 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => resetModal()}
-                    style={{ flex: 1, padding: '0.75rem', borderRadius: 980, border: '1px solid var(--border-subtle)', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
+                    className="viel-btn-signin"
+                    style={{ flex: 1 }}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="apple-button-primary"
+                    className="viel-btn-primary"
                     style={{ flex: 1 }}
                   >
                     Encrypt & Secure Upload →
@@ -578,52 +488,20 @@ export default function Dashboard() {
         </div>
       )}
 
+      <Footer />
     </div>
-  );
-}
-
-/* ── Shared Subcomponents ── */
-
-function SidebarNavItem({ icon, label, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: '0.6rem',
-        padding: '0.65rem 0.8rem', width: '100%',
-        borderRadius: 'var(--radius-sm)', border: 'none',
-        background: active ? 'var(--accent-apple-light)' : 'transparent',
-        color: active ? 'var(--accent-apple)' : 'var(--text-secondary)',
-        fontWeight: active ? 700 : 500, fontSize: '0.88rem',
-        cursor: 'pointer', transition: 'all var(--transition-fast)'
-      }}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }
 
 function StatMetricCard({ icon, value, label, sub }) {
   return (
-    <div className="apple-card" style={{ padding: '1.2rem' }}>
+    <div className="cinematic-glass" style={{ padding: '1.4rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
-        <div style={{ padding: 6, borderRadius: 8, background: 'var(--bg-secondary)' }}>
-          {icon}
-        </div>
-        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{label}</span>
+        {icon}
+        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{label}</span>
       </div>
-      <p style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{value}</p>
-      <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: 4 }}>{sub}</p>
-    </div>
-  );
-}
-
-function StageItem({ active, text }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: active ? 'var(--text-primary)' : 'var(--text-tertiary)', margin: '4px 0' }}>
-      {active ? <Check size={14} color="var(--status-success)" /> : <div style={{ width: 14 }} />}
-      <span style={{ fontWeight: active ? 600 : 400 }}>{text}</span>
+      <p style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{value}</p>
+      <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 4 }}>{sub}</p>
     </div>
   );
 }
@@ -634,83 +512,67 @@ function PaperRowCard({ paper, onRetry, retryLoading }) {
 
   return (
     <div style={{
-      padding: '1.2rem', borderRadius: 'var(--radius-sm)',
-      border: '1px solid var(--border-subtle)', background: 'var(--bg-primary)',
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+      padding: '1.2rem 1.5rem', borderRadius: 14,
+      border: '1px solid var(--glass-border)', background: 'var(--bg-dark-surface)',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem'
     }}>
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
         <div style={{
           width: 42, height: 42, borderRadius: 10,
-          background: isUnlocked ? 'var(--status-success-bg)' : 'var(--status-warning-bg)',
+          background: isUnlocked ? 'rgba(52, 199, 89, 0.12)' : 'rgba(255, 149, 0, 0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-          {isUnlocked ? <CheckCircle2 size={20} color="var(--status-success)" /> : <Lock size={20} color="var(--status-warning)" />}
+          {isUnlocked ? <CheckCircle2 size={20} color="#34c759" /> : <Lock size={20} color="#ff9500" />}
         </div>
 
         <div>
-          {/* Fix: Use paper.examName */}
-          <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
             {paper.examName} ({paper.examCode})
           </h4>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '3px 0 0' }}>
             Assigned Organiser: <strong>{paper.assignedTo?.firstName} {paper.assignedTo?.lastName}</strong> ({paper.assignedTo?.organisation})
           </p>
-          <p style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)', margin: '2px 0 0' }}>
-            Canonical SHA-256: <code style={{ fontSize: '0.73rem' }}>{paper.hash?.substring(0, 24)}...</code>
+          <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '3px 0 0' }}>
+            Canonical SHA-256: <code style={{ fontSize: '0.74rem', color: 'var(--accent-violet-bright)' }}>{paper.hash?.substring(0, 24)}...</code>
           </p>
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
         <div style={{ textAlign: 'right' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', fontSize: '0.8rem', fontWeight: 600 }}>
-            <Clock size={13} color="var(--text-tertiary)" />
+            <Clock size={13} color="var(--text-muted)" />
             {new Date(paper.unlockTime).toLocaleString()}
           </div>
 
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 4 }}>
-            {/* Document Storage Status */}
-            <span className="apple-badge badge-success">✓ Encrypted</span>
-
-            {/* Blockchain Notarization Status */}
+            <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: 980, background: 'rgba(52, 199, 89, 0.12)', color: '#34c759', fontWeight: 700 }}>
+              ✓ Encrypted
+            </span>
             {isBcRegistered ? (
-              <span className="apple-badge badge-info" title={paper.blockchainTxHash}>
-                <ShieldCheck size={12} /> Registered
+              <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: 980, background: 'var(--accent-violet-light)', color: 'var(--accent-violet-bright)', fontWeight: 700 }}>
+                Registered
               </span>
             ) : (
-              <span className="apple-badge badge-warning">
-                <AlertTriangle size={12} /> {paper.blockchainStatus?.toUpperCase() || 'OFFLINE'}
+              <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', borderRadius: 980, background: 'rgba(255, 149, 0, 0.12)', color: '#ff9500', fontWeight: 700 }}>
+                Offline
               </span>
             )}
           </div>
         </div>
 
-        {/* Retry Blockchain Button if offline */}
         {!isBcRegistered && (
           <button
             onClick={onRetry}
             disabled={retryLoading}
-            style={{
-              padding: '0.4rem 0.8rem', borderRadius: 980, border: '1px solid var(--border-subtle)',
-              background: 'var(--bg-secondary)', fontSize: '0.78rem', fontWeight: 600,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
-            }}
-            title="Retry notarizing document hash on Ethereum smart contract"
+            className="viel-btn-signin"
+            style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem' }}
           >
             <RefreshCw size={12} className={retryLoading ? 'spin' : ''} />
-            {retryLoading ? 'Retrying...' : 'Retry Blockchain'}
+            {retryLoading ? 'Retrying...' : 'Retry Notarization'}
           </button>
         )}
       </div>
-    </div>
-  );
-}
-
-function SettingRow({ label, value }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
-      <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{label}</span>
-      <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{value}</span>
     </div>
   );
 }
