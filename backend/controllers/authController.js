@@ -107,4 +107,19 @@ const getMe = async (req, res) => {
   res.json({ user: req.user });
 };
 
-module.exports = { signup, login, getMe };
+// @route  GET /api/auth/organizers
+// @access Private
+const getOrganizers = async (req, res) => {
+  try {
+    const organizers = await User.find({ role: 'Institution Organiser' })
+      .select('_id firstName lastName organisation email')
+      .sort({ firstName: 1 });
+    res.json({ organizers });
+  } catch (error) {
+    console.error('Fetch organizers error:', error);
+    res.status(500).json({ message: 'Failed to fetch organizers' });
+  }
+};
+
+module.exports = { signup, login, getMe, getOrganizers };
+

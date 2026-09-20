@@ -2,17 +2,13 @@ import React, { useState } from 'react';
 import { SectionLabel, titleStyle } from './HowItWorks';
 
 const team = [
-  { initials: 'NK', name: 'Nitish Kumar',  role: 'Lead Developer' },
-  { initials: 'LW', name: 'Lucky Walia',   role: 'Blockchain Engineer' },
-  { initials: 'KT', name: 'Kapil Thakur',  role: 'Security Architect' },
-  { initials: 'NG', name: 'Nanish Garg',   role: 'UI / UX Designer' },
+  { initials: 'LW', name: 'Lucky Walia', role: 'Lead Developer' },
+  { initials: 'SS', name: 'Saurav Suman', role: 'Co-Lead Developer' },
 ];
 
 const avatarColors = [
   ['#1a56db', '#0ea5e9'],
   ['#7c3aed', '#06b6d4'],
-  ['#0d9488', '#1a56db'],
-  ['#ea580c', '#f59e0b'],
 ];
 
 export default function Team() {
@@ -28,9 +24,10 @@ export default function Team() {
           color: 'var(--muted)', fontSize: '1rem',
           maxWidth: 480, margin: '0.8rem auto 0', lineHeight: 1.7,
         }}>
-          The minds behind PerfectXskills — building the future of tamper-proof examinations.
+          The minds behind PerfectXams — building the future of tamper-proof examinations.
         </p>
       </div>
+
 
       <div style={{
         display: 'flex', gap: '1.5rem',

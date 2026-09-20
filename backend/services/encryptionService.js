@@ -1,43 +1,56 @@
 const crypto = require("crypto");
 const fs = require("fs");
-const path = require("path");
 
 const algorithm = "aes-256-cbc";
 
-// 32-byte key
-const secretKey = crypto
-  .createHash("sha256")
-  .update(String(process.env.MASTER_KEY || "perfectxskills-secret"))
-  .digest("base64")
-  .substr(0, 32);
-
-// 16-byte IV
-const iv = crypto.randomBytes(16);
+// Generate exact 32-byte key buffer from MASTER_KEY
+const getSecretKeyBuffer = () => {
+  return crypto
+    .createHash("sha256")
+    .update(String(process.env.MASTER_KEY || "perfectxams-secret"))
+    .digest(); // returns 32-byte Buffer
+};
 
 const encryptFile = (inputPath) => {
-  const outputPath = inputPath + ".enc";
-
-  const cipher = crypto.createCipheriv(
-    algorithm,
-    Buffer.from(secretKey),
-    iv
-  );
-
-  const input = fs.createReadStream(inputPath);
-  const output = fs.createWriteStream(outputPath);
-
-  input.pipe(cipher).pipe(output);
-
   return new Promise((resolve, reject) => {
-    output.on("finish", () => {
-      resolve({
-        encryptedPath: outputPath,
-        iv: iv.toString("hex"),
-      });
-    });
+    // 1. Calculate canonical SHA-256 from original raw file bytes
+    fs.readFile(inputPath, (readErr, fileBuffer) => {
+      if (readErr) return reject(readErr);
 
-    output.on("error", reject);
+      const canonicalHash = crypto
+        .createHash("sha256")
+        .update(fileBuffer)
+        .digest("hex");
+
+      // 2. Generate random 16-byte IV per document
+      const iv = crypto.randomBytes(16);
+      const secretKeyBuffer = getSecretKeyBuffer();
+
+      const cipher = crypto.createCipheriv(algorithm, secretKeyBuffer, iv);
+
+      const outputPath = inputPath + ".enc";
+      const outputStream = fs.createWriteStream(outputPath);
+
+      const inputStream = fs.createReadStream(inputPath);
+
+      inputStream
+        .pipe(cipher)
+        .pipe(outputStream)
+        .on("finish", () => {
+          // Unlink unencrypted temporary upload file
+          fs.unlink(inputPath, () => {});
+
+          resolve({
+            encryptedPath: outputPath,
+            iv: iv.toString("hex"),
+            canonicalHash,
+          });
+        })
+        .on("error", (err) => {
+          reject(err);
+        });
+    });
   });
 };
 
-module.exports = { encryptFile };
+module.exports = { encryptFile, getSecretKeyBuffer };

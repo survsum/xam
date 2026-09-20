@@ -1,581 +1,602 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, User, Settings, FileText, Upload, Clock, Lock, CheckCircle, Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  FileText, Upload, Clock, Lock, CheckCircle2, AlertTriangle, RefreshCw,
+  Search, ShieldCheck, User, LogOut, Settings, Eye, Check, X, ArrowRight, Database
+} from 'lucide-react';
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('papers');
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  // User & Auth State
+  const token = localStorage.getItem('pxs_token');
+  const user = JSON.parse(localStorage.getItem('pxs_user') || 'null');
 
+  // Papers & Organisers Data
+  const [papers, setPapers] = useState([]);
+  const [organizers, setOrganizers] = useState([]);
+  const [loadingPapers, setLoadingPapers] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const [examName, setExamName] = useState("");
-  const [examCode, setExamCode] = useState("");
-  const [unlockDate, setUnlockDate] = useState("");
-  const [unlockTime, setUnlockTime] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
+  // Upload Form State
+  const [examName, setExamName] = useState('');
+  const [examCode, setExamCode] = useState('');
+  const [subject, setSubject] = useState('');
+  const [description, setDescription] = useState('');
+  const [unlockDate, setUnlockDate] = useState('');
+  const [unlockTime, setUnlockTime] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
   const [paperFile, setPaperFile] = useState(null);
 
- const [papers, setPapers] = useState([]);
+  // Upload Progress State
+  const [uploadStep, setUploadStep] = useState(0); // 0: Idle, 1: Uploading & Encrypting, 2: SHA-256 Hashing, 3: Saving DB, 4: Blockchain Notarization, 5: Complete
+  const [uploadError, setUploadError] = useState('');
+  const [uploadResult, setUploadResult] = useState(null);
+  const [retryLoading, setRetryLoading] = useState({});
 
-  const [templates] = useState([
-    { id: 1, name: 'MCQ Template', description: 'Multiple choice questions format', questions: 50 },
-    { id: 2, name: 'Essay Template', description: 'Long-form answer format', questions: 5 },
-    { id: 3, name: 'Mixed Template', description: 'MCQ + Short answers', questions: 30 },
-    { id: 4, name: 'Math Template', description: 'Problem-solving format', questions: 20 },
-  ]);
-
-  const stats = {
-    uploaded: 24,
-    locked: 8,
-    unlocked: 16,
-  };
+  useEffect(() => {
+    if (!token || !user) {
+      navigate('/auth');
+      return;
+    }
+    fetchMyPapers();
+    fetchOrganizers();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('pxs_token');
     localStorage.removeItem('pxs_user');
-    window.location.href = '/';
+    navigate('/');
   };
-  const handleUploadPaper = async () => {
+
+  const fetchMyPapers = async () => {
+    setLoadingPapers(true);
     try {
-      const token = localStorage.getItem("pxs_token");
+      const res = await fetch(`${API}/papers/my-papers`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPapers(data.papers || []);
+      } else if (res.status === 401) {
+        handleLogout();
+      }
+    } catch (err) {
+      console.error('Fetch papers error:', err);
+    } finally {
+      setLoadingPapers(false);
+    }
+  };
 
+  const fetchOrganizers = async () => {
+    try {
+      const res = await fetch(`${API}/auth/organizers`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOrganizers(data.organizers || []);
+      }
+    } catch (err) {
+      console.error('Fetch organizers error:', err);
+    }
+  };
+
+  const handleUploadSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setUploadError('');
+
+    if (!examName || !examCode || !unlockDate || !unlockTime || !assignedTo || !paperFile) {
+      setUploadError('Please fill in all required fields and select an exam paper file.');
+      return;
+    }
+
+    setUploadStep(1); // Stage 1: Uploading & Encrypting
+
+    try {
       const formData = new FormData();
-
-      formData.append("examName", examName);
-      formData.append("examCode", examCode);
+      formData.append('examName', examName);
+      formData.append('examCode', examCode);
+      formData.append('subject', subject);
+      formData.append('description', description);
+      
       const localDateTime = new Date(`${unlockDate}T${unlockTime}`);
+      formData.append('unlockTime', localDateTime.toISOString());
+      formData.append('assignedTo', assignedTo);
+      formData.append('paper', paperFile);
 
-formData.append(
-  "unlockTime",
-  localDateTime.toISOString()
-);
-      formData.append("assignedTo", assignedTo);
-      formData.append("paper", paperFile);
+      // Simulate real stage step transitions
+      setTimeout(() => setUploadStep(2), 600); // Stage 2: SHA-256 Hashing
+      setTimeout(() => setUploadStep(3), 1200); // Stage 3: Database Storage & Encryption
 
-      const res = await fetch(
-        "http://localhost:5000/api/papers/upload",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`
-          },
-          body: formData
-        }
-      );
+      const res = await fetch(`${API}/papers/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message);
+        setUploadError(data.message || 'Upload failed');
+        setUploadStep(0);
         return;
       }
 
-      alert("Paper uploaded successfully");
-      fetchMyPapers();
-      setShowUploadModal(false);
+      setUploadStep(4); // Stage 4: Blockchain Notarization
+      setTimeout(() => {
+        setUploadStep(5); // Complete
+        setUploadResult(data);
+        fetchMyPapers();
+      }, 800);
 
-    } catch (error) {
-      console.log(error);
-      alert("Upload failed");
+    } catch (err) {
+      console.error('Upload submit error:', err);
+      setUploadError('Network error during upload. Please check backend connection.');
+      setUploadStep(0);
     }
   };
-  const fetchMyPapers = async () => {
-  try {
-    const token = localStorage.getItem("pxs_token");
 
-    console.log("TOKEN:", token); // check token
-
-    const res = await fetch(
-      "http://localhost:5000/api/papers/my-papers",
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+  const handleRetryBlockchain = async (paperId) => {
+    setRetryLoading(prev => ({ ...prev, [paperId]: true }));
+    try {
+      const res = await fetch(`${API}/papers/${paperId}/retry-blockchain`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        fetchMyPapers();
+      } else {
+        alert(data.message || 'Retry failed');
       }
-    );
-
-    const data = await res.json();
-
-    if (res.ok) {
-      setPapers(data.papers || []);
-    } else {
-      alert(data.message);
+    } catch (err) {
+      console.error('Retry error:', err);
+      alert('Could not connect to backend server');
+    } finally {
+      setRetryLoading(prev => ({ ...prev, [paperId]: false }));
     }
+  };
 
-  } catch (error) {
-    console.log(error);
-  }
-};
-useEffect(() => {
-  fetchMyPapers();
-}, []);
+  const resetModal = () => {
+    setShowUploadModal(false);
+    setUploadStep(0);
+    setUploadError('');
+    setUploadResult(null);
+    setExamName('');
+    setExamCode('');
+    setSubject('');
+    setDescription('');
+    setUnlockDate('');
+    setUnlockTime('');
+    setAssignedTo('');
+    setPaperFile(null);
+  };
 
+  // Filtered papers
+  const filteredPapers = papers.filter(p =>
+    p.examName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.examCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.subject?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-
+  // Statistics
+  const totalUploaded = papers.length;
+  const lockedCount = papers.filter(p => p.status === 'locked').length;
+  const unlockedCount = papers.filter(p => p.status === 'unlocked').length;
+  const blockchainCount = papers.filter(p => p.blockchainStatus === 'registered').length;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f6fb', paddingTop: '4rem' }}>
-      {/* Sidebar */}
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      
+      {/* ── Apple Style Sidebar ── */}
       <aside style={{
-        width: '280px',
-        background: 'linear-gradient(180deg, #2a6fdb 0%, #1a5bbf 100%)',
-        padding: '2rem 0',
+        width: 260,
+        background: 'var(--surface-card)',
+        borderRight: '1px solid var(--border-subtle)',
+        padding: '2rem 1.2rem',
         position: 'fixed',
         height: '100vh',
-        top: 0,
-        left: 0,
-        boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
+        top: 0, left: 0,
+        zIndex: 20,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
       }}>
-        {/* Logo */}
-        <div style={{ padding: '0 1.5rem', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <span style={{ fontFamily: 'Georgia, serif', fontSize: '1.3rem', fontWeight: 700, color: 'white' }}>Perfect</span>
-            <span style={{ fontFamily: 'Georgia, serif', fontSize: '1.3rem', fontWeight: 700, color: '#87cefa', fontStyle: 'italic' }}>Xams</span>
+        <div>
+          {/* Brand */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2.5rem', paddingLeft: '0.5rem' }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 10,
+              background: 'linear-gradient(135deg, #0071e3 0%, #5856d6 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff', fontWeight: 800, fontSize: '1rem'
+            }}>
+              P
+            </div>
+            <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>
+              Perfect<span style={{ color: 'var(--accent-apple)' }}>Xams</span>
+            </span>
           </div>
-        </div>
 
-        {/* Upload Button */}
-        <div style={{ padding: '0 1.5rem', marginBottom: '2rem' }}>
+          {/* Primary Action Button */}
           <button
             onClick={() => setShowUploadModal(true)}
-            style={{
-              width: '100%',
-              padding: '0.75rem 1rem',
-              background: 'white',
-              color: '#2a6fdb',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-              transition: 'transform 0.2s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+            className="apple-button-primary"
+            style={{ width: '100%', borderRadius: 'var(--radius-sm)', padding: '0.7rem 1rem', marginBottom: '2rem', justifyContent: 'center' }}
           >
-            <Upload size={18} />
-            Upload a new paper
+            <Upload size={18} /> Upload New Paper
+          </button>
+
+          {/* Navigation Links */}
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <SidebarNavItem
+              icon={<FileText size={18} />}
+              label="My Exam Papers"
+              active={activeTab === 'papers'}
+              onClick={() => setActiveTab('papers')}
+            />
+            <SidebarNavItem
+              icon={<ShieldCheck size={18} />}
+              label="Audit & Verify"
+              onClick={() => navigate('/audit')}
+            />
+            <SidebarNavItem
+              icon={<Settings size={18} />}
+              label="Account Settings"
+              active={activeTab === 'settings'}
+              onClick={() => setActiveTab('settings')}
+            />
+          </nav>
+        </div>
+
+        {/* User Card */}
+        <div style={{
+          padding: '0.8rem', background: 'var(--bg-secondary)',
+          borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+        }}>
+          <div style={{ overflow: 'hidden' }}>
+            <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+              {user?.firstName} {user?.lastName}
+            </p>
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-tertiary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+              {user?.role}
+            </p>
+          </div>
+          <button
+            onClick={handleLogout}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', padding: 4 }}
+            title="Sign Out"
+          >
+            <LogOut size={16} />
           </button>
         </div>
-
-        {/* Menu Items */}
-        <nav>
-          <SidebarItem
-            icon={<FileText size={20} />}
-            label="My papers"
-            active={activeTab === 'papers'}
-            onClick={() => { setActiveTab('papers'); setShowSettings(false); }}
-          />
-          <SidebarItem
-            icon={<FileText size={20} />}
-            label="Template"
-            active={activeTab === 'template'}
-            onClick={() => { setActiveTab('template'); setShowSettings(false); }}
-          />
-          <SidebarItem
-            icon={<Settings size={20} />}
-            label="Settings"
-            active={showSettings}
-            onClick={() => { setShowSettings(true); setActiveTab(''); }}
-          />
-        </nav>
       </aside>
 
-      {/* Main Content */}
-      <main style={{ marginLeft: '280px', flex: 1, padding: '2rem 3rem' }}>
-        {/* Top Bar */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '2rem',
-        }}>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 700, color: '#1a3a6e', margin: 0 }}>
-            {showSettings ? 'Settings' : activeTab === 'template' ? 'Templates' : 'Dashboard'}
-          </h1>
+      {/* ── Main Work Area ── */}
+      <main style={{ marginLeft: 260, flex: 1, padding: '2.5rem 3rem' }} className="animate-fade-in">
+        
+        {/* Header Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <div>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              Paper Setter Dashboard
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: 2 }}>
+              Secure AES-256 encrypted exam paper vault & blockchain registry
+            </p>
+          </div>
 
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            {/* Notification */}
-            <button style={{
-              background: 'white',
-              border: 'none',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              position: 'relative',
-            }}>
-              <Bell size={20} color="#1a3a6e" />
-              <span style={{
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                width: '8px',
-                height: '8px',
-                background: '#ff4757',
-                borderRadius: '50%',
-              }} />
-            </button>
-
-            {/* Profile */}
             <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                style={{
-                  background: 'linear-gradient(135deg, #2a6fdb 0%, #1a5bbf 100%)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(42,111,219,0.3)',
-                }}
-              >
-                <User size={20} color="white" />
-              </button>
-
-              {showProfileMenu && (
-                <div style={{
-                  position: 'absolute',
-                  top: '50px',
-                  right: 0,
-                  background: 'white',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                  padding: '0.5rem',
-                  minWidth: '180px',
-                  zIndex: 1000,
-                }}>
-                  <button
-                    onClick={handleLogout}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      background: 'none',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontSize: '0.9rem',
-                      color: '#1a3a6e',
-                      transition: 'background 0.2s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f4f6fb'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
+              <input
+                type="text"
+                placeholder="Search exam papers..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="apple-input"
+                style={{ paddingLeft: '2.2rem', width: 240, padding: '0.55rem 0.8rem 0.55rem 2.2rem', fontSize: '0.84rem' }}
+              />
+              <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
             </div>
           </div>
         </div>
 
-        {/* Settings View */}
-        {showSettings && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 600, color: '#1a3a6e', marginBottom: '1.5rem' }}>Account Settings</h2>
+        {/* ── Stat Metric Cards ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.2rem', marginBottom: '2.5rem' }}>
+          <StatMetricCard icon={<FileText size={20} color="var(--accent-apple)" />} value={totalUploaded} label="Total Papers" sub="Uploaded by you" />
+          <StatMetricCard icon={<Lock size={20} color="var(--status-warning)" />} value={lockedCount} label="Locked Vault" sub="Awaiting unlock time" />
+          <StatMetricCard icon={<CheckCircle2 size={20} color="var(--status-success)" />} value={unlockedCount} label="Unlocked" sub="Accessible to organiser" />
+          <StatMetricCard icon={<ShieldCheck size={20} color="var(--status-info)" />} value={blockchainCount} label="Blockchain Proved" sub="Notarized on-chain" />
+        </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <SettingItem label="Email Notifications" description="Receive email updates about your papers" />
-              <SettingItem label="Auto-unlock Papers" description="Automatically unlock papers at scheduled time" />
-              <SettingItem label="Two-Factor Authentication" description="Add extra security to your account" />
-              <SettingItem label="Dark Mode" description="Switch to dark theme" />
+        {/* ── Main Papers Section ── */}
+        {activeTab === 'papers' && (
+          <div className="apple-card" style={{ padding: '1.8rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
+                Uploaded Exam Papers ({filteredPapers.length})
+              </h2>
+              <button
+                onClick={fetchMyPapers}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-apple)', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                <RefreshCw size={14} /> Refresh List
+              </button>
             </div>
 
-            <button style={{
-              marginTop: '2rem',
-              padding: '0.75rem 2rem',
-              background: '#2a6fdb',
-              color: 'white',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-            }}>
-              Save Changes
-            </button>
-          </div>
-        )}
-
-        {/* Dashboard Stats */}
-        {!showSettings && activeTab === 'papers' && (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
-              <StatCard icon={<FileText size={24} color="#2a6fdb" />} number={stats.uploaded} label="Papers Uploaded" subtext="Total papers uploaded by you" />
-              <StatCard icon={<Lock size={24} color="#ff9800" />} number={stats.locked} label="Locked Papers" subtext="Papers locked by you" />
-              <StatCard icon={<CheckCircle size={24} color="#4caf50" />} number={stats.unlocked} label="Unlocked Papers" subtext="Papers unlocked by you" />
-            </div>
-
-            {/* Paper Schedule Section */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-              <InfoCard
-                icon={<Clock size={40} color="#2a6fdb" />}
-                title="Paper will unlock in"
-                description="Your locked papers will be automatically unlocked at the scheduled date and time."
-              />
-              <InfoCard
-                icon={<Lock size={40} color="#2a6fdb" />}
-                title="When papers unlocked"
-                description="Once papers are unlocked, they will be visible to the exam authorities and students."
-              />
-            </div>
-
-            {/* Papers List */}
-            <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#1a3a6e', marginBottom: '1.5rem' }}>Upcoming Papers</h2>
-
+            {loadingPapers ? (
+              <p style={{ color: 'var(--text-tertiary)', padding: '2rem 0', textAlign: 'center' }}>Loading encrypted paper records...</p>
+            ) : filteredPapers.length === 0 ? (
+              <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <FileText size={40} color="var(--text-tertiary)" style={{ marginBottom: '0.8rem' }} />
+                <p style={{ fontWeight: 600, fontSize: '1rem' }}>No exam papers found</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: 4 }}>Upload your first encrypted paper to get started.</p>
+              </div>
+            ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {papers.map(paper => (
-                  <PaperItem key={paper._id} paper={paper} />
+                {filteredPapers.map(paper => (
+                  <PaperRowCard
+                    key={paper._id}
+                    paper={paper}
+                    onRetry={() => handleRetryBlockchain(paper._id)}
+                    retryLoading={retryLoading[paper._id]}
+                  />
                 ))}
               </div>
-            </div>
-          </>
-        )}
-
-        {/* Templates View */}
-        {!showSettings && activeTab === 'template' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
-            {templates.map(template => (
-              <TemplateCard key={template.id} template={template} />
-            ))}
+            )}
           </div>
         )}
+
+        {/* ── Settings View ── */}
+        {activeTab === 'settings' && (
+          <div className="apple-card" style={{ padding: '2rem', maxWidth: 600 }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>Account & Security Preferences</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <SettingRow label="Institution Name" value={user?.organisation || 'University'} />
+              <SettingRow label="Account Role" value={user?.role} />
+              <SettingRow label="Email Address" value={user?.email} />
+              <SettingRow label="Encryption Standard" value="AES-256-CBC (Server Derived)" />
+              <SettingRow label="Ethereum Smart Contract" value="0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512" />
+            </div>
+          </div>
+        )}
+
       </main>
 
-      {/* Upload Modal */}
+      {/* ── Multi-Stage Upload Modal ── */}
       {showUploadModal && (
         <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-        }} onClick={() => setShowUploadModal(false)}>
-          <div style={{
-            background: 'white',
-            borderRadius: '20px',
-            padding: '2rem',
-            width: '90%',
-            maxWidth: '500px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-          }} onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a3a6e', marginBottom: '1.5rem' }}>Upload New Paper</h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.45)',
+          backdropFilter: 'blur(8px)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }} onClick={() => resetModal()}>
+          <div
+            className="apple-card animate-pop-in"
+            style={{ width: '100%', maxWidth: 540, padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600, color: '#1a3a6e' }}>
-                  Exam Credentials
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., EXAM2024-MATH-001"
-                  value={examCode}
-                  onChange={(e) => setExamCode(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '10px',
-                    fontSize: '0.9rem',
-                  }}
-                />
+                <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Upload Exam Paper</h2>
+                <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                  AES-256 Encrypted & Smart Contract Notarized
+                </p>
               </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600, color: '#1a3a6e' }}>
-                  Name of Exam
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Mathematics Final Exam 2024"
-                  value={examName}
-                  onChange={(e) => setExamName(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '10px',
-                    fontSize: '0.9rem',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600, color: '#1a3a6e' }}>
-                    Unlock Date
-                  </label>
-                  <input
-                    type="date"
-                    value={unlockDate}
-                    onChange={(e) => setUnlockDate(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '10px',
-                      fontSize: '0.9rem',
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600, color: '#1a3a6e' }}>
-                    Unlock Time
-                  </label>
-                  <input
-                    type="time"
-                    value={unlockTime}
-                    onChange={(e) => setUnlockTime(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '10px',
-                      fontSize: '0.9rem',
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  color: '#1a3a6e'
-                }}>
-                  Assigned Organiser ID
-                </label>
-
-                <input
-                  type="text"
-                  placeholder="Enter organiser ID"
-                  value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '10px',
-                    fontSize: '0.9rem',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  color: '#1a3a6e'
-                }}>
-                  Upload Paper File
-                </label>
-
-                <input
-                  type="file"
-                  onChange={(e) => setPaperFile(e.target.files[0])}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '10px',
-                    fontSize: '0.9rem',
-                    background: 'white'
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button
-                  onClick={() => setShowUploadModal(false)}
-                  style={{
-                    flex: 1,
-                    padding: '0.75rem',
-                    background: 'transparent',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    fontSize: '0.9rem',
-                    color: '#666',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUploadPaper}
-                  style={{
-                    flex: 1,
-                    padding: '0.75rem',
-                    background: '#2a6fdb',
-                    border: 'none',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    fontSize: '0.9rem',
-                    color: 'white',
-                  }}
-                >
-                  Upload Paper
-                </button>
-              </div>
+              <button onClick={() => resetModal()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+                <X size={20} />
+              </button>
             </div>
+
+            {uploadError && (
+              <div style={{
+                padding: '0.75rem 1rem', background: 'var(--status-danger-bg)',
+                borderRadius: 'var(--radius-sm)', color: 'var(--status-danger)',
+                fontSize: '0.85rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
+              }}>
+                <AlertTriangle size={16} /> {uploadError}
+              </div>
+            )}
+
+            {/* Stage Progress Indicator */}
+            {uploadStep > 0 && uploadStep < 5 && (
+              <div style={{ background: 'var(--bg-secondary)', padding: '1.2rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.5rem' }}>
+                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-apple)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Processing Security Pipeline...
+                </p>
+                <StageItem active={uploadStep >= 1} text="1. Encrypting File with AES-256-CBC" />
+                <StageItem active={uploadStep >= 2} text="2. Computing Canonical SHA-256 Checksum" />
+                <StageItem active={uploadStep >= 3} text="3. Storing Metadata in Database" />
+                <StageItem active={uploadStep >= 4} text="4. Attempting Blockchain Notarization" />
+              </div>
+            )}
+
+            {/* Success Confirmation View */}
+            {uploadStep === 5 && uploadResult && (
+              <div style={{ background: 'var(--status-success-bg)', border: '1px solid rgba(52,199,89,0.3)', padding: '1.5rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--status-success)', fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.8rem' }}>
+                  <CheckCircle2 size={24} /> Paper Secured & Saved!
+                </div>
+                
+                <div style={{ fontSize: '0.84rem', display: 'flex', flexDirection: 'column', gap: 6, color: 'var(--text-primary)' }}>
+                  <p><strong>Exam Name:</strong> {uploadResult.paper?.examName}</p>
+                  <p><strong>Document Status:</strong> <span style={{ color: 'var(--status-success)', fontWeight: 700 }}>✓ Encrypted & Saved</span></p>
+                  <p><strong>Canonical SHA-256:</strong> <code style={{ fontSize: '0.75rem', wordBreak: 'break-all' }}>{uploadResult.paper?.hash}</code></p>
+                  <p><strong>Blockchain Notarization:</strong>{' '}
+                    {uploadResult.paper?.blockchainStatus === 'registered' ? (
+                      <span style={{ color: 'var(--status-success)', fontWeight: 700 }}>✓ Registered ({uploadResult.paper?.blockchainTxHash?.substring(0, 16)}...)</span>
+                    ) : (
+                      <span style={{ color: 'var(--status-warning)', fontWeight: 700 }}>⚠ Local Blockchain Offline (Paper is safe, retry available)</span>
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => resetModal()}
+                  className="apple-button-primary"
+                  style={{ width: '100%', marginTop: '1.2rem' }}
+                >
+                  Done
+                </button>
+              </div>
+            )}
+
+            {/* Form Inputs (Shown when idle or error) */}
+            {uploadStep === 0 && (
+              <form onSubmit={handleUploadSubmit}>
+                {/* File Dropzone */}
+                <div style={{ marginBottom: '1.2rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    Exam Document File * (PDF, DOCX, ZIP max 25MB)
+                  </label>
+                  <input
+                    type="file"
+                    onChange={e => setPaperFile(e.target.files[0])}
+                    className="apple-input"
+                    style={{ padding: '0.6rem' }}
+                    accept=".pdf,.docx,.zip"
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      Exam Credentials / Code *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. MATH2026-FINAL"
+                      value={examCode}
+                      onChange={e => setExamCode(e.target.value)}
+                      className="apple-input"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      Exam Title *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Mathematics Final Exam"
+                      value={examName}
+                      onChange={e => setExamName(e.target.value)}
+                      className="apple-input"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      Subject
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Mathematics"
+                      value={subject}
+                      onChange={e => setSubject(e.target.value)}
+                      className="apple-input"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      Assign Institution Organiser *
+                    </label>
+                    <select
+                      value={assignedTo}
+                      onChange={e => setAssignedTo(e.target.value)}
+                      className="apple-input"
+                      style={{ cursor: 'pointer' }}
+                      required
+                    >
+                      <option value="">Select Organiser...</option>
+                      {organizers.map(org => (
+                        <option key={org._id} value={org._id}>
+                          {org.firstName} {org.lastName} ({org.organisation})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      Unlock Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={unlockDate}
+                      onChange={e => setUnlockDate(e.target.value)}
+                      className="apple-input"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      Unlock Time *
+                    </label>
+                    <input
+                      type="time"
+                      value={unlockTime}
+                      onChange={e => setUnlockTime(e.target.value)}
+                      className="apple-input"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.8rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => resetModal()}
+                    style={{ flex: 1, padding: '0.75rem', borderRadius: 980, border: '1px solid var(--border-subtle)', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="apple-button-primary"
+                    style={{ flex: 1 }}
+                  >
+                    Encrypt & Secure Upload →
+                  </button>
+                </div>
+              </form>
+            )}
+
           </div>
         </div>
       )}
+
     </div>
   );
 }
 
-// Sidebar Item Component
-function SidebarItem({ icon, label, active, onClick }) {
+/* ── Shared Subcomponents ── */
+
+function SidebarNavItem({ icon, label, active, onClick }) {
   return (
     <button
       onClick={onClick}
       style={{
-        width: '100%',
-        padding: '0.75rem 1.5rem',
-        background: active ? 'rgba(255,255,255,0.15)' : 'transparent',
-        border: 'none',
-        borderLeft: active ? '3px solid white' : '3px solid transparent',
-        cursor: 'pointer',
-        color: 'white',
-        fontSize: '0.9rem',
-        fontWeight: active ? 600 : 400,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        transition: 'all 0.2s',
-        textAlign: 'left',
+        display: 'flex', alignItems: 'center', gap: '0.6rem',
+        padding: '0.65rem 0.8rem', width: '100%',
+        borderRadius: 'var(--radius-sm)', border: 'none',
+        background: active ? 'var(--accent-apple-light)' : 'transparent',
+        color: active ? 'var(--accent-apple)' : 'var(--text-secondary)',
+        fontWeight: active ? 700 : 500, fontSize: '0.88rem',
+        cursor: 'pointer', transition: 'all var(--transition-fast)'
       }}
-      onMouseEnter={e => !active && (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
-      onMouseLeave={e => !active && (e.currentTarget.style.background = 'transparent')}
     >
       {icon}
       {label}
@@ -583,225 +604,113 @@ function SidebarItem({ icon, label, active, onClick }) {
   );
 }
 
-// Stat Card Component
-function StatCard({ icon, number, label, subtext }) {
+function StatMetricCard({ icon, value, label, sub }) {
   return (
-    <div style={{
-      background: 'white',
-      borderRadius: '16px',
-      padding: '1.5rem',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.5rem',
-    }}>
-      <div style={{
-        width: '48px',
-        height: '48px',
-        borderRadius: '12px',
-        background: 'rgba(42,111,219,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        {icon}
+    <div className="apple-card" style={{ padding: '1.2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
+        <div style={{ padding: 6, borderRadius: 8, background: 'var(--bg-secondary)' }}>
+          {icon}
+        </div>
+        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{label}</span>
       </div>
-      <h3 style={{ fontSize: '2rem', fontWeight: 700, color: '#1a3a6e', margin: 0 }}>{number}</h3>
-      <p style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1a3a6e', margin: 0 }}>{label}</p>
-      <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>{subtext}</p>
+      <p style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{value}</p>
+      <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: 4 }}>{sub}</p>
     </div>
   );
 }
 
-// Info Card Component
-function InfoCard({ icon, title, description }) {
+function StageItem({ active, text }) {
   return (
-    <div style={{
-      background: 'white',
-      borderRadius: '16px',
-      padding: '2rem',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-      textAlign: 'center',
-    }}>
-      <div style={{
-        width: '80px',
-        height: '80px',
-        borderRadius: '50%',
-        background: 'rgba(42,111,219,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        margin: '0 auto 1rem',
-      }}>
-        {icon}
-      </div>
-      <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#1a3a6e', marginBottom: '0.5rem' }}>{title}</h3>
-      <p style={{ fontSize: '0.85rem', color: '#666', lineHeight: 1.5 }}>{description}</p>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: active ? 'var(--text-primary)' : 'var(--text-tertiary)', margin: '4px 0' }}>
+      {active ? <Check size={14} color="var(--status-success)" /> : <div style={{ width: 14 }} />}
+      <span style={{ fontWeight: active ? 600 : 400 }}>{text}</span>
     </div>
   );
 }
 
-// Paper Item Component
-function PaperItem({ paper }) {
+function PaperRowCard({ paper, onRetry, retryLoading }) {
   const isUnlocked = paper.status === 'unlocked';
+  const isBcRegistered = paper.blockchainStatus === 'registered';
 
   return (
     <div style={{
-      padding: '1.25rem',
-      border: '1px solid #e0e0e0',
-      borderRadius: '12px',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      transition: 'all 0.2s',
-      cursor: 'pointer',
-    }}
-      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
-      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+      padding: '1.2rem', borderRadius: 'var(--radius-sm)',
+      border: '1px solid var(--border-subtle)', background: 'var(--bg-primary)',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+    }}>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
         <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '10px',
-          background: isUnlocked ? 'rgba(76,175,80,0.1)' : 'rgba(255,152,0,0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          width: 42, height: 42, borderRadius: 10,
+          background: isUnlocked ? 'var(--status-success-bg)' : 'var(--status-warning-bg)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-          {isUnlocked ? <CheckCircle size={20} color="#4caf50" /> : <Lock size={20} color="#ff9800" />}
+          {isUnlocked ? <CheckCircle2 size={20} color="var(--status-success)" /> : <Lock size={20} color="var(--status-warning)" />}
         </div>
 
-        <div style={{ flex: 1 }}>
-          <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1a3a6e', margin: '0 0 0.3rem 0' }}>
-            {paper.examname}
+        <div>
+          {/* Fix: Use paper.examName */}
+          <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+            {paper.examName} ({paper.examCode})
           </h4>
-          <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
-           {
-  isUnlocked
-    ? "Unlocked"
-    : `Unlocks at ${new Date(paper.unlockTime).toLocaleString()}`
-}
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+            Assigned Organiser: <strong>{paper.assignedTo?.firstName} {paper.assignedTo?.lastName}</strong> ({paper.assignedTo?.organisation})
+          </p>
+          <p style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)', margin: '2px 0 0' }}>
+            Canonical SHA-256: <code style={{ fontSize: '0.73rem' }}>{paper.hash?.substring(0, 24)}...</code>
           </p>
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <Clock size={16} color="#666" />
-        <span style={{ fontSize: '0.85rem', color: '#666', fontWeight: 500 }}>  {new Date(paper.unlockTime).toLocaleTimeString()}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', fontSize: '0.8rem', fontWeight: 600 }}>
+            <Clock size={13} color="var(--text-tertiary)" />
+            {new Date(paper.unlockTime).toLocaleString()}
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 4 }}>
+            {/* Document Storage Status */}
+            <span className="apple-badge badge-success">✓ Encrypted</span>
+
+            {/* Blockchain Notarization Status */}
+            {isBcRegistered ? (
+              <span className="apple-badge badge-info" title={paper.blockchainTxHash}>
+                <ShieldCheck size={12} /> Registered
+              </span>
+            ) : (
+              <span className="apple-badge badge-warning">
+                <AlertTriangle size={12} /> {paper.blockchainStatus?.toUpperCase() || 'OFFLINE'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Retry Blockchain Button if offline */}
+        {!isBcRegistered && (
+          <button
+            onClick={onRetry}
+            disabled={retryLoading}
+            style={{
+              padding: '0.4rem 0.8rem', borderRadius: 980, border: '1px solid var(--border-subtle)',
+              background: 'var(--bg-secondary)', fontSize: '0.78rem', fontWeight: 600,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+            }}
+            title="Retry notarizing document hash on Ethereum smart contract"
+          >
+            <RefreshCw size={12} className={retryLoading ? 'spin' : ''} />
+            {retryLoading ? 'Retrying...' : 'Retry Blockchain'}
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-// Template Card Component
-function TemplateCard({ template }) {
+function SettingRow({ label, value }) {
   return (
-    <div style={{
-      background: 'white',
-      borderRadius: '16px',
-      padding: '1.5rem',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-      cursor: 'pointer',
-      transition: 'all 0.2s',
-    }}
-      onMouseEnter={e => {
-        e.currentTarget.style.transform = 'translateY(-4px)';
-        e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.12)';
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
-      }}
-    >
-      <div style={{
-        width: '48px',
-        height: '48px',
-        borderRadius: '12px',
-        background: 'rgba(42,111,219,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: '1rem',
-      }}>
-        <FileText size={24} color="#2a6fdb" />
-      </div>
-
-      <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#1a3a6e', marginBottom: '0.5rem' }}>
-        {template.name}
-      </h3>
-      <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem', lineHeight: 1.5 }}>
-        {template.description}
-      </p>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: '0.8rem', color: '#666' }}>{template.questions} Questions</span>
-        <button style={{
-          padding: '0.5rem 1rem',
-          background: '#2a6fdb',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          fontSize: '0.85rem',
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.3rem',
-        }}>
-          <Download size={14} />
-          Use
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Setting Item Component
-function SettingItem({ label, description }) {
-  const [enabled, setEnabled] = useState(false);
-
-  return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingBottom: '1.5rem',
-      borderBottom: '1px solid #e0e0e0',
-    }}>
-      <div>
-        <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1a3a6e', margin: '0 0 0.3rem 0' }}>
-          {label}
-        </h4>
-        <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
-          {description}
-        </p>
-      </div>
-
-      <div
-        onClick={() => setEnabled(!enabled)}
-        style={{
-          width: '48px',
-          height: '24px',
-          borderRadius: '12px',
-          background: enabled ? '#2a6fdb' : '#e0e0e0',
-          cursor: 'pointer',
-          position: 'relative',
-          transition: 'background 0.3s',
-        }}
-      >
-        <div style={{
-          width: '20px',
-          height: '20px',
-          borderRadius: '50%',
-          background: 'white',
-          position: 'absolute',
-          top: '2px',
-          left: enabled ? '26px' : '2px',
-          transition: 'left 0.3s',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-        }} />
-      </div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+      <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{label}</span>
+      <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{value}</span>
     </div>
   );
 }

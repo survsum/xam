@@ -16,6 +16,7 @@ import Auth from './pages/Auth';
 import Team from './pages/Team';
 import Dashboard from './pages/Dashboard';
 import OrganizerDashboard from './pages/OrganizerDashboard';
+import AuditView from './pages/AuditView';
 
 function HomePage() {
   const [modal, setModal] = useState({ icon: '', title: '', message: '' });
@@ -55,14 +56,11 @@ function HomePage() {
           })
         }
       />
-     
 
       <Stats />
       <HowItWorks />
       <Features />
-       <Auth defaultTab={authTab} onSuccess={showModal} />
-
-      
+      <Auth defaultTab={authTab} onSuccess={showModal} />
 
       <Team />
       <Footer />
@@ -82,9 +80,11 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/auth" element={<Auth defaultTab="login" />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/organizer-dashboard" element={<OrganizerDashboard />} />
+        <Route path="/audit" element={<AuditView />} />
       </Routes>
     </BrowserRouter>
   );
-}
+}
